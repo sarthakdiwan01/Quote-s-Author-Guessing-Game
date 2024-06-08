@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from random import choice
+import time
 
 @st.cache_data(show_spinner=False)
 def scrape_quotes():
@@ -34,15 +35,18 @@ def initialize_state():
         st.session_state.guess = ''
     if 'hint' not in st.session_state:
         st.session_state.hint = ''
-    if 'hint_step' not in st.session_state:
-        st.session_state.hint_step = 0
+    if 'answer_revealed' not in st.session_state:
+        st.session_state.answer_revealed = False
+    if 'countdown' not in st.session_state:
+        st.session_state.countdown = 5
 
 def reset_game():
     st.session_state.quote = choice(st.session_state.all_quotes)
     st.session_state.remaining_guesses = 4
     st.session_state.guess = ''
     st.session_state.hint = ''
-    st.session_state.hint_step = 0
+    st.session_state.answer_revealed = False
+    st.session_state.countdown = 5
 
 def main():
     st.title("**Quote Guessing Game**")
@@ -55,40 +59,46 @@ def main():
     st.write("Here's a quote: ")
     st.write(f"*{st.session_state.quote['text']}*")
 
-    guess = st.text_input(f"Who said this quote? Guesses remaining {st.session_state.remaining_guesses}")
+    if not st.session_state.answer_revealed:
+        guess = st.text_input(f"Who said this quote? Guesses remaining {st.session_state.remaining_guesses}")
 
-    if st.button("Submit Guess"):
-        if guess.lower() == st.session_state.quote["author"].lower():
-            st.success("CONGRATULATIONS!!! YOU GOT IT RIGHT")
-            reset_game()
-        else:
-            st.session_state.remaining_guesses -= 1
-            st.session_state.guess = guess
-
-            if st.session_state.remaining_guesses == 3:
-                res = requests.get(f"http://quotes.toscrape.com{st.session_state.quote['bio-link']}")
-                soup = BeautifulSoup(res.text, "html.parser")
-                birth_date = soup.find(class_="author-born-date").get_text()
-                birth_place = soup.find(class_="author-born-location").get_text()
-                st.session_state.hint = f"Hint: The author was born on {birth_date} {birth_place}"
-            
-            elif st.session_state.remaining_guesses == 2:
-                st.session_state.hint = f"Hint: The author's first name starts with: {st.session_state.quote['author'][0]}"
-            
-            elif st.session_state.remaining_guesses == 1:
-                last_initial = st.session_state.quote["author"].split(" ")[1][0]
-                st.session_state.hint = f"Hint: The author's last name starts with: {last_initial}"
-            
+        if st.button("Submit Guess"):
+            if guess.lower() == st.session_state.quote["author"].lower():
+                st.success("CONGRATULATIONS!!! YOU GOT IT RIGHT")
+                st.session_state.answer_revealed = True
             else:
-                st.session_state.hint = f"Sorry, you ran out of guesses. The answer was {st.session_state.quote['author']}"
-                st.session_state.remaining_guesses = 0
+                st.session_state.remaining_guesses -= 1
+                st.session_state.guess = guess
 
+                if st.session_state.remaining_guesses == 3:
+                    res = requests.get(f"http://quotes.toscrape.com{st.session_state.quote['bio-link']}")
+                    soup = BeautifulSoup(res.text, "html.parser")
+                    birth_date = soup.find(class_="author-born-date").get_text()
+                    birth_place = soup.find(class_="author-born-location").get_text()
+                    st.session_state.hint = f"Hint: The author was born on {birth_date} {birth_place}"
+                
+                elif st.session_state.remaining_guesses == 2:
+                    st.session_state.hint = f"Hint: The author's first name starts with: {st.session_state.quote['author'][0]}"
+                
+                elif st.session_state.remaining_guesses == 1:
+                    last_initial = st.session_state.quote["author"].split(" ")[1][0]
+                    st.session_state.hint = f"Hint: The author's last name starts with: {last_initial}"
+                
+                elif st.session_state.remaining_guesses == 0:
+                    st.session_state.hint = f"Sorry, you ran out of guesses. The answer was {st.session_state.quote['author']}"
+                    st.session_state.answer_revealed = True
+
+        if st.session_state.hint and st.session_state.remaining_guesses > 0:
             st.write(st.session_state.hint)
-
-    if st.session_state.remaining_guesses == 0:
-        st.write(f"Sorry, you ran out of guesses. The answer was {st.session_state.quote['author']}")
-        if st.button("Try Another Quote"):
-            reset_game()
+    else:
+        st.write(f"The answer was: {st.session_state.quote['author']}")
+        st.write("Next quote in:")
+        countdown_placeholder = st.empty()
+        for i in range(st.session_state.countdown, 0, -1):
+            countdown_placeholder.write(f"{i} seconds")
+            time.sleep(1)
+        reset_game()
+        st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
