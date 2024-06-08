@@ -1,8 +1,8 @@
-import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from random import choice
 import time
+import pandas as pd
 
 @st.cache_data(show_spinner=False)
 def scrape_quotes():
@@ -23,6 +23,9 @@ def scrape_quotes():
             })
         next_btn = soup.find(class_="next")
         url = next_btn.find("a")["href"] if next_btn else None
+
+    # Save the data to CSV file
+    pd.DataFrame(all_quotes).to_csv('quotes.csv', index=False)
     
     return all_quotes
 
